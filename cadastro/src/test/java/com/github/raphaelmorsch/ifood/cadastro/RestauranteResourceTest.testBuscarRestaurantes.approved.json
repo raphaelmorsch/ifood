@@ -1,12 +1,14 @@
 [
   {
+    "cnpj": "97.791.505/0001-53",
     "id": 123,
-    "nome": "Novo Restaurante 1",
+    "nomeFantasia": "Novo Restaurante 1",
     "proprietario": "Id do Keycloak 1"
   },
   {
+    "cnpj": "15.188.530/0001-82",
     "id": 234,
-    "nome": "Novo Restaurante 2",
+    "nomeFantasia": "Novo Restaurante 2",
     "proprietario": "Id do Keycloak 2"
   }
 ]

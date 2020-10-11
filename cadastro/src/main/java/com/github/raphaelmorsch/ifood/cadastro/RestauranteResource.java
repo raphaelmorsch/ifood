@@ -2,8 +2,13 @@ package com.github.raphaelmorsch.ifood.cadastro;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import javax.annotation.security.RolesAllowed;
+import javax.inject.Inject;
 import javax.transaction.Transactional;
+import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -20,25 +25,49 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
+import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.security.OAuthFlow;
+import org.eclipse.microprofile.openapi.annotations.security.OAuthFlows;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.annotations.tags.Tags;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import com.github.raphaelmorsch.ifood.cadastro.dto.AdicionarPratoDTO;
+import com.github.raphaelmorsch.ifood.cadastro.dto.AdicionarRestauranteDTO;
+import com.github.raphaelmorsch.ifood.cadastro.dto.PratoMapper;
+import com.github.raphaelmorsch.ifood.cadastro.dto.RestauranteDTO;
+import com.github.raphaelmorsch.ifood.cadastro.dto.RestauranteMapper;
+import com.github.raphaelmorsch.ifood.cadastro.infra.ConstraintViolationResponse;
 
 @Path("/restaurantes")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@RolesAllowed("proprietario")
+@SecurityScheme(securitySchemeName = "ifood-oauth", type = SecuritySchemeType.OAUTH2, flows = @OAuthFlows(password = @OAuthFlow(tokenUrl = "http://localhost:8081/auth/realms/ifood/protocol/openid-connect/token")))
 public class RestauranteResource {
+
+	@Inject
+	RestauranteMapper restauranteMapper;
+
+	@Inject
+	PratoMapper pratoMapper;
 
 	@GET
 	@Tag(ref = "restaurante")
-	public List<PanacheEntityBase> buscar() {
-		return Restaurante.listAll();
+	public List<RestauranteDTO> buscar() {
+
+		return Restaurante.streamAll().map(r -> restauranteMapper.toRestauranteDTO((Restaurante) r))
+				.collect(Collectors.toList());
 	}
 
 	@POST
 	@Transactional
 	@Tag(ref = "restaurante")
+	@APIResponse(responseCode = "400", content = @Content(schema = @Schema(allOf = ConstraintViolationResponse.class)))
+	@APIResponse(responseCode = "201", description = "Caso o restaurante seja cadastrado com sucesso")
 	/**
 	 * 
 	 * @param dto
@@ -47,10 +76,13 @@ public class RestauranteResource {
 	 *         follow the HATEOAS pattern for RESTful applications (Hypertext as
 	 *         Engine of Application State)
 	 */
-	public Response adicionar(Restaurante dto, @Context UriInfo uriInfo) {
-		dto.persist();
+	public Response adicionar(@Valid AdicionarRestauranteDTO dto, @Context UriInfo uriInfo) {
+
+		Restaurante restaurante = new Restaurante();
+		restauranteMapper.toRestaurante(dto, restaurante);
+		restaurante.persist();
 		UriBuilder uriBuilder = uriInfo.getAbsolutePathBuilder();
-		uriBuilder.path(Long.toString(dto.id));
+		uriBuilder.path(Long.toString(restaurante.id));
 		return Response.created(uriBuilder.build()).build();
 	}
 
@@ -58,7 +90,8 @@ public class RestauranteResource {
 	@Transactional
 	@Path("{id}")
 	@Tag(ref = "restaurante")
-	public void atualizar(@PathParam("id") Long id, Restaurante dto) {
+	public Response atualizar(@PathParam("id") Long id, @Valid AdicionarRestauranteDTO dto,
+			@Context UriInfo contextInfo) {
 
 		Optional<Restaurante> restaurante = Restaurante.findByIdOptional(id);
 
@@ -66,9 +99,12 @@ public class RestauranteResource {
 			throw new NotFoundException();
 		}
 
-		restaurante.get().nome = dto.nome;
+		restauranteMapper.toRestaurante(dto, restaurante.get());
 
 		restaurante.get().persist();
+
+		UriBuilder uriBuilder = contextInfo.getAbsolutePathBuilder();
+		return Response.noContent().contentLocation(uriBuilder.build()).build();
 	}
 
 	@DELETE
@@ -89,32 +125,38 @@ public class RestauranteResource {
 	@GET
 	@Path("{id}/pratos")
 	@Tags(refs = { "prato", "restaurante" })
-	public List<Prato> buscarPratos(@PathParam("id") Long restauranteId) {
+	public List<AdicionarPratoDTO> buscarPratos(@PathParam("id") Long restauranteId) {
 		Optional<Restaurante> restauranteOp = Restaurante.findByIdOptional(restauranteId);
 		if (!restauranteOp.isPresent()) {
 			throw new NotFoundException("Restaurante não localizado", Response.status(Status.NOT_FOUND).build());
 		}
-		return Prato.list("restaurante", restauranteOp.get());
+
+		Stream<Prato> pratos = Prato.stream("restaurante", restauranteOp.get());
+		return pratos.map(p -> pratoMapper.toPratoDTO(p)).collect(Collectors.toList());
 	}
 
 	@POST
 	@Transactional
 	@Path("{restauranteId}/pratos")
 	@Tags(refs = { "restaurante", "prato" })
-	public Response adicionarPrato(@PathParam("restauranteId") Long restauranteId, Prato dto,
+	@APIResponse(responseCode = "400", content = @Content(schema = @Schema(allOf = ConstraintViolationResponse.class)))
+	@APIResponse(responseCode = "201", description = "caso o prato seja cadastrado com sucesso")
+	public Response adicionarPrato(@PathParam("restauranteId") Long restauranteId, @Valid AdicionarPratoDTO dto,
 			@Context UriInfo uriInfo) {
 
 		Optional<Restaurante> restaurante = Restaurante.findByIdOptional(restauranteId);
 
+		Prato prato = new Prato();
 		restaurante.ifPresentOrElse(r -> {
-			dto.restaurante = r;
-			dto.persist();
+			pratoMapper.toPrato(dto, prato);
+			prato.restaurante = r;
+			prato.persist();
 		}, () -> {
 			throw new NotFoundException();
 		});
 
 		UriBuilder uriBuilder = uriInfo.getAbsolutePathBuilder();
-		uriBuilder.path(Long.toString(dto.id));
+		uriBuilder.path(Long.toString(prato.id));
 		return Response.created(uriBuilder.build()).build();
 	}
 
@@ -122,26 +164,22 @@ public class RestauranteResource {
 	@Transactional
 	@Path("{restauranteId}/pratos/{id}")
 	@Tags(refs = { "restaurante", "prato" })
-	public void atualizarPrato(@PathParam("restauranteId") Long restauranteId, @PathParam("id") Long id, Prato dto) {
+	public void atualizarPrato(@PathParam("restauranteId") Long restauranteId, @PathParam("id") Long id,
+			AdicionarPratoDTO dto) {
 
 		Optional<Restaurante> restauranteOp = Restaurante.findByIdOptional(restauranteId);
-
 		if (restauranteOp.isEmpty()) {
 			throw new NotFoundException("Restaurante não Localizado");
 		}
 
-		Optional<Prato> prato = Prato.findByIdOptional(id);
-
-		if (prato.isEmpty()) {
+		Optional<Prato> pratoOp = Prato.findByIdOptional(id);
+		if (pratoOp.isEmpty()) {
 			throw new NotFoundException();
+		} else {
+			Prato prato = pratoOp.get();
+			pratoMapper.toPrato(dto, prato);
+			prato.persist();
 		}
-
-		prato.get().descricao = dto.descricao;
-		prato.get().nome = dto.nome;
-		prato.get().preco = dto.preco;
-		prato.get().restaurante = restauranteOp.get();
-
-		prato.get().persist();
 	}
 
 	@DELETE

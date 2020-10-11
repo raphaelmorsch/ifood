@@ -2,6 +2,8 @@ restaurante:
    - ID: 123
      NOME: "Novo Restaurante 1"
      PROPRIETARIO: "Id do Keycloak 1"
+     CNPJ: "97.791.505/0001-53"
    - ID: 234
      NOME: "Novo Restaurante 2"
      PROPRIETARIO: "Id do Keycloak 2"   
+     CNPJ: "15.188.530/0001-82"
