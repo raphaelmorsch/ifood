@@ -25,6 +25,9 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
+import org.eclipse.microprofile.metrics.annotation.Counted;
+import org.eclipse.microprofile.metrics.annotation.SimplyTimed;
+import org.eclipse.microprofile.metrics.annotation.Timed;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -46,7 +49,8 @@ import com.github.raphaelmorsch.ifood.cadastro.infra.ConstraintViolationResponse
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @RolesAllowed("proprietario")
-@SecurityScheme(securitySchemeName = "ifood-oauth", type = SecuritySchemeType.OAUTH2, flows = @OAuthFlows(password = @OAuthFlow(tokenUrl = "http://localhost:8081/auth/realms/ifood/protocol/openid-connect/token")))
+@SecurityScheme(securitySchemeName = "ifood-oauth", type = SecuritySchemeType.OAUTH2, 
+	flows = @OAuthFlows(password = @OAuthFlow(tokenUrl = "http://localhost:8081/auth/realms/ifood/protocol/openid-connect/token")))
 public class RestauranteResource {
 
 	@Inject
@@ -57,6 +61,9 @@ public class RestauranteResource {
 
 	@GET
 	@Tag(ref = "restaurante")
+	@Counted(name = "Quantidade buscas Restaurante")
+	@SimplyTimed(name = "Tempo simples de busca")
+	@Timed(name = "Tempo completo de busca")
 	public List<RestauranteDTO> buscar() {
 
 		return Restaurante.streamAll().map(r -> restauranteMapper.toRestauranteDTO((Restaurante) r))
