@@ -8,6 +8,14 @@ services:
       POSTGRES_PASSWORD: cadastro
     ports: 
       - "5432:5432"
+  postgres_marketplace:
+    container_name: postgres_marketplace_ifood
+    image: postgres:12.4
+    environment: 
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: marketplace
+    ports: 
+      - "5433:5432"
   keycloak_ifood:
      container_name: keycloak_ifood
      image: jboss/keycloak:9.0.3
@@ -31,14 +39,12 @@ services:
   prometheus_ifood:
     container_name: prometheus_ifood
     image: prometheus-ifood
-    network_mode: bridge
-    ports:
-      - "9091:9090"
+    network_mode: "host"
+    
   grafana_ifood:
     container_name: grafana_ifood
     image: grafana/grafana:7.2.1
-    network_mode: bridge
-    ports:
-      - "3000:3000"
+    network_mode: "host"
+    
       
      
