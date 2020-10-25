@@ -1,4 +1,7 @@
 version: "3.7"
+volumes:
+   mysql_data:
+      driver: local
 services:
   postgres_cadastro:
     container_name: postgres_cadastro_ifood
@@ -16,14 +19,34 @@ services:
       POSTGRES_PASSWORD: marketplace
     ports: 
       - "5433:5432"
+  
+  mysql:
+     container_name: mysql
+     image: mysql:latest
+     volumes:
+        - mysql_data:/var/lib/mysql
+     environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: keycloak
+        MYSQL_USER: keycloak
+        MYSQL_PASSWORD: password
+     
+  
   keycloak_ifood:
      container_name: keycloak_ifood
-     image: jboss/keycloak:9.0.3
+     image: jboss/keycloak:latest
      environment:
+        DB_VENDOR: MYSQL
+        DB_ADDR: mysql
+        DB_DATABASE: keycloak
+        DB_USER: keycloak
+        DB_PASSWORD: password
         KEYCLOAK_USER: admin
         KEYCLOAK_PASSWORD: admin
      ports:
         - "8081:8080"
+     depends_on:
+        - mysql
   jaeger_ifood:
      container_name: jaeger_ifood
      image: jaegertracing/all-in-one:1.19
@@ -46,5 +69,10 @@ services:
     image: grafana/grafana:7.2.1
     network_mode: "host"
     
-      
-     
+  artemis_ifood:
+    container_name: artemis_ifood
+    image: vromero/activemq-artemis:2.11.0
+    network_mode: "host"
+    environment:
+       ARTEMIS_USERNAME: admin
+       ARTEMIS_PASSWORD: admin

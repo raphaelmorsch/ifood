@@ -21,4 +21,19 @@ public class Restaurante {
 		return preparedQuery.onItem().transformToMulti(set -> Multi.createFrom().iterable(set)).onItem()
 				.transform(RestauranteDTO::from).toUni();
 	}
+
+	@Override
+	public String toString() {
+		return "Restaurante [id=" + id + ", nome=" + nome + ", localizacao=" + localizacao + "]";
+	}
+
+	public void persist(PgPool client) {
+		client.preparedQuery("insert into localizacao (id, longitude, latitude) values ($1, $2, $3)")
+				.execute(Tuple.of(localizacao.id, localizacao.longitude, localizacao.latitude)).await().indefinitely();
+
+		client.preparedQuery("insert into restaurante (id, nome, localizacao_id) values ($1, $2, $3)")
+				.execute(Tuple.of(id, nome, localizacao.id)).await().indefinitely();
+
+	}
+
 }
